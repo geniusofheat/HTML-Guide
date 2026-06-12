@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HTML Quick Reference Guide</title>
+  <title>HTML Guide</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500&family=Lato:wght@400;700&family=Playfair+Display:wght@400;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -12,20 +12,42 @@
 </head>
 <body>
 
-  <header>
-    <div id="nav-path">
-      <span>HTML Quick Reference Guide</span>
-    </div>
-    <div id="back-btn" class="hidden">
-      <button class="blue-btn" onclick="show_previous()">← Back</button>
-    </div>
-  </header>
-
   <main>
-    <ul id="versions-topics-list"></ul>
-    <div id="lesson-topics-list" class="hidden"></div>
-    <div id="elements-list" class="hidden"></div>
-    <ul id="attributes-list" class="hidden"></ul>
+
+    <!-- CARD 1: Breadcrumb nav -->
+    <nav id="nav-card">
+      <div id="nav-path">
+        <span>HTML Guide</span>
+      </div>
+    </nav>
+
+    <!-- CARD 2: Version buttons + Back button -->
+    <nav id="version-nav">
+      <div id="version-buttons">
+        <button class="version-btn" data-version="HTML1">HTML1</button>
+        <button class="version-btn" data-version="HTML2">HTML2</button>
+        <button class="version-btn" data-version="HTML3">HTML3</button>
+        <button class="version-btn" data-version="HTML4">HTML4</button>
+        <button class="version-btn" data-version="HTML5">HTML5</button>
+      </div>
+      <div id="back-btn" class="hidden">
+        <button class="blue-btn" onclick="show_previous()">Back</button>
+      </div>
+    </nav>
+
+    <!-- CARD 3: Shared content divider -->
+    <div id="content-divider">
+      <h3 id="content-heading" class="hidden"></h3>
+      <div id="scroll-area">
+        <div id="welcome-message">
+          <h3>Welcome to the HTML Guide</h3>
+          <p>Tap a version button above to begin — HTML1 through HTML5.</p>
+          <p>Each version contains topic categories. Tap a topic to see its elements, then tap an element to open its full lesson.</p>
+          <p>Use the ← Back button or tap any link in the path above to return to a previous view.</p>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <script src="html_1_lessons.js"></script>
