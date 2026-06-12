@@ -1,6 +1,7 @@
 // html_guide_engine.js
-// Builds a nested inline toggle list:
-// HTML Versions → Lesson Topics → Elements → Element Lesson → Attributes
+// Single shared content divider model.
+// Navigation stack replaces nested DOM building.
+// HTML Versions → Topics → Elements → Element Lesson → Attributes
 
 // ─── § 1  VERSION ORDER ──────────────────────────────────────────────────────
 const version_order = ["HTML1", "HTML2", "HTML3", "HTML4", "HTML5"];
@@ -25,7 +26,13 @@ const topic_order = [
   "Miscellaneous"
 ];
 
-// ─── § 3  GET VERSION DATA ───────────────────────────────────────────────────
+// ─── § 3  STATE ──────────────────────────────────────────────────────────────
+const state = {
+  current_version: null,
+  history_stack: []
+};
+
+// ─── § 4  GET VERSION DATA ───────────────────────────────────────────────────
 function get_version_data(version_name) {
   if (version_name === "HTML1") return html1_lessons;
   if (version_name === "HTML2") return html2_lessons;
@@ -35,90 +42,82 @@ function get_version_data(version_name) {
   return null;
 }
 
-// ─── § 4  REMOVE ELEMENT BY ID (SAFE HIDE) ───────────────────────────────────
-function remove_by_id(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.add("hidden");
-}
-
 // ─── § 5  UPDATE NAV PATH ────────────────────────────────────────────────────
 function update_nav_path(crumbs) {
   const nav_el = document.getElementById("nav-path");
   if (!nav_el) return;
-  let html = "<span>HTML Quick Reference Guide</span>";
-  crumbs.forEach(function(crumb) {
-    html += '<span class="separator"> › </span><span>' + crumb + "</span>";
+
+  let html = '<span onclick="go_to_crumb(0)">HTML Guide</span>';
+  crumbs.forEach(function(crumb, i) {
+    html += '<span class="separator"> › </span>';
+    html += '<span onclick="go_to_crumb(' + (i + 1) + ')">' + crumb + '</span>';
   });
   nav_el.innerHTML = html;
 }
 
-// ─── § 6  RENDER VERSION TOPICS LIST ─────────────────────────────────────────
-function render_version_topics_list() {
-  const main_el = document.querySelector("main");
-  if (!main_el) return;
-
-  const ul = document.getElementById("versions-topics-list");
-  if (!ul) return;
-
-  version_order.forEach(function(version_name) {
-    const version_obj = get_version_data(version_name);
-    if (!version_obj) return;
-
-    const li = document.createElement("li");
-    li.textContent = version_name;
-
-    li.onclick = function() {
-      li.classList.toggle("open");
-      on_version_click(version_obj, li);
-    };
-
-    ul.appendChild(li);
-  });
-
-  update_nav_path([]);
-}
-
-// ─── § 7  VERSION CLICK ──────────────────────────────────────────────────────
-function on_version_click(version_obj, clicked_li) {
-  set_hidden("element-lesson", true);
-
-  const existing = clicked_li.querySelector("#lesson-topics-list");
-  if (!existing) {
-    render_lesson_topics_list(version_obj, clicked_li);
-  } else {
-    existing.classList.toggle("hidden");
+// ─── § 6  CRUMB NAVIGATION ───────────────────────────────────────────────────
+function go_to_crumb(index) {
+  if (index === 0) {
+    state.history_stack = [];
+    state.current_version = null;
+    set_active_version_btn(null);
+    render_welcome();
+    update_nav_path([]);
+    hide_back_btn();
+    return;
   }
 
-  update_nav_path([version_obj.version]);
-  document.getElementById("back-btn").classList.remove("hidden");
+  const target = state.history_stack[index - 1];
+  if (!target) return;
+  state.history_stack = state.history_stack.slice(0, index);
+  render_view(target);
 }
 
-// ─── SAFE VISIBILITY ────────────────────────────────────────────────────────
-function set_hidden(id, state) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  if (state) el.classList.add("hidden");
-  else el.classList.remove("hidden");
+// ─── § 7  PUSH AND RENDER ────────────────────────────────────────────────────
+function push_and_render(view) {
+  state.history_stack.push(view);
+  render_view(view);
 }
 
-// ─── § 8  LESSON TOPICS LIST ─────────────────────────────────────────────────
-function render_lesson_topics_list(version_obj, clicked_li) {
-  const ul = document.createElement("ul");
-  ul.id = "lesson-topics-list";
+// ─── § 8  RENDER VIEW ────────────────────────────────────────────────────────
+function render_view(view) {
+  const scroll_area = document.getElementById("scroll-area");
+  const heading = document.getElementById("content-heading");
+  if (!scroll_area || !heading) return;
 
-  const header_li = document.createElement("li");
-  header_li.textContent = "Lesson Topics";
+  scroll_area.innerHTML = "";
+  heading.classList.remove("hidden");
 
-  const elements_ol = document.createElement("ol");
-  elements_ol.id = "elements-list";
+  if (view.type === "topics") {
+    render_topics_view(view, scroll_area, heading);
+  } else if (view.type === "elements") {
+    render_elements_view(view, scroll_area, heading);
+  } else if (view.type === "lesson") {
+    render_lesson_view(view, scroll_area, heading);
+  }
+}
 
-  header_li.onclick = function(e) {
-    e.stopPropagation();
-    header_li.classList.toggle("open");
-    elements_ol.classList.toggle("hidden");
-  };
+// ─── § 9  VERSION BUTTON CLICK ───────────────────────────────────────────────
+function on_version_click(version_name) {
+  const version_obj = get_version_data(version_name);
+  if (!version_obj) return;
 
-  elements_ol.classList.remove("hidden");
+  state.current_version = version_name;
+  state.history_stack = [];
+
+  set_active_version_btn(version_name);
+  show_back_btn();
+
+  const view = { type: "topics", version_obj: version_obj };
+  push_and_render(view);
+  update_nav_path([version_name]);
+}
+
+// ─── § 10  TOPICS VIEW ───────────────────────────────────────────────────────
+function render_topics_view(view, scroll_area, heading) {
+  const version_obj = view.version_obj;
+
+  heading.textContent = "Lesson Topics";
 
   const sorted_topics = version_obj.topics
     ? version_obj.topics.slice().sort(function(a, b) {
@@ -128,119 +127,81 @@ function render_lesson_topics_list(version_obj, clicked_li) {
       })
     : [];
 
+  const ul = document.createElement("ul");
+  ul.id = "lesson-topics-list";
+
   sorted_topics.forEach(function(topic_obj) {
     const li = document.createElement("li");
     li.textContent = topic_obj.topic;
-
-    li.onclick = function(e) {
-      e.stopPropagation();
-      li.classList.toggle("open");
-      on_topic_click(topic_obj, version_obj, li);
+    li.onclick = function() {
+      on_topic_click(topic_obj, version_obj);
     };
-
-    elements_ol.appendChild(li);
-  });
-
-  header_li.appendChild(elements_ol);
-  ul.appendChild(header_li);
-
-  const static_items = [
-    "version",
-    "released",
-    "definition",
-    "what_it_introduced",
-    "note",
-    "tip"
-  ];
-
-  static_items.forEach(function(name) {
-    const li = document.createElement("li");
-    li.textContent = name;
     ul.appendChild(li);
   });
 
-  clicked_li.appendChild(ul);
-  update_nav_path([]);
+  scroll_area.appendChild(ul);
 }
 
-// ─── § 9  TOPIC CLICK ────────────────────────────────────────────────────────
-function on_topic_click(topic_obj, version_obj, clicked_li) {
-  let elements_ol = clicked_li.querySelector("#element-lessons");
-
-  if (!elements_ol) {
-    render_elements(topic_obj, version_obj, clicked_li);
-  } else {
-    elements_ol.classList.toggle("hidden");
-  }
-
+// ─── § 11  TOPIC CLICK ───────────────────────────────────────────────────────
+function on_topic_click(topic_obj, version_obj) {
+  const view = { type: "elements", topic_obj: topic_obj, version_obj: version_obj };
+  push_and_render(view);
   update_nav_path([version_obj.version, topic_obj.topic]);
 }
 
-// ─── § 10  ELEMENTS ──────────────────────────────────────────────────────────
-function render_elements(topic_obj, version_obj, clicked_li) {
-  let existing = clicked_li.querySelector("#element-lessons");
+// ─── § 12  ELEMENTS VIEW ─────────────────────────────────────────────────────
+function render_elements_view(view, scroll_area, heading) {
+  const topic_obj = view.topic_obj;
+  const version_obj = view.version_obj;
 
-  if (existing) {
-    existing.classList.remove("hidden");
-    return;
-  }
+  heading.textContent = "Elements";
 
   const ol = document.createElement("ol");
-  ol.id = "element-lessons";
+  ol.id = "elements-list";
 
   topic_obj.elements.forEach(function(element_obj) {
     const li = document.createElement("li");
     li.textContent = element_obj.element;
-    li.onclick = function(e) {
-      e.stopPropagation();
-      li.classList.toggle("open");
-      on_element_click(element_obj, version_obj, topic_obj.topic, li);
+    li.onclick = function() {
+      on_element_click(element_obj, version_obj, topic_obj.topic);
     };
     ol.appendChild(li);
   });
 
-  clicked_li.appendChild(ol);
+  scroll_area.appendChild(ol);
 }
 
-// ─── § 11  ELEMENT CLICK ─────────────────────────────────────────────────────
-function on_element_click(element_obj, version_obj, topic_name, clicked_li) {
-  const existing = clicked_li.querySelector("#element-lesson");
-  if (existing) {
-    existing.remove();
-    return;
-  }
-
-  const other = document.getElementById("element-lesson");
-  if (other) other.remove();
-
-  render_element_lesson(element_obj, clicked_li);
+// ─── § 13  ELEMENT CLICK ─────────────────────────────────────────────────────
+function on_element_click(element_obj, version_obj, topic_name) {
+  const view = {
+    type: "lesson",
+    element_obj: element_obj,
+    version_obj: version_obj,
+    topic_name: topic_name
+  };
+  push_and_render(view);
   update_nav_path([version_obj.version, topic_name, element_obj.element]);
 }
 
-// ─── § 12  ELEMENT LESSON ────────────────────────────────────────────────────
-function render_element_lesson(element_obj, container) {
-  if (!container) return;
+// ─── § 14  LESSON VIEW ───────────────────────────────────────────────────────
+function render_lesson_view(view, scroll_area, heading) {
+  const element_obj = view.element_obj;
 
-  const existing = document.getElementById("element-lesson");
-  if (existing) existing.remove();
+  heading.textContent = "Element Lesson";
 
   const div = document.createElement("div");
   div.id = "element-lesson";
-
-  div.addEventListener("click", function(e) {
-    e.stopPropagation();
-  });
 
   const ul = document.createElement("ul");
   ul.id = "element-lesson-titles";
 
   const titles = [
-    { label: "Definition", key: "definition", type: "p" },
-    { label: "Attributes", key: "attributes", type: "attributes" },
-    { label: "Syntax", key: "syntax", type: "code" },
-    { label: "Default Value", key: "default_value", type: "code" },
-    { label: "Tip", key: "tip", type: "p" },
-    { label: "Note", key: "note", type: "p" }
+    { label: "Definition",    key: "definition",    type: "p"          },
+    { label: "Attributes",    key: "attributes",    type: "attributes" },
+    { label: "Syntax",        key: "syntax",        type: "code"       },
+    { label: "Default Value", key: "default_value", type: "code"       },
+    { label: "Tip",           key: "tip",           type: "p"          },
+    { label: "Note",          key: "note",          type: "p"          }
   ];
 
   titles.forEach(function(title) {
@@ -260,10 +221,10 @@ function render_element_lesson(element_obj, container) {
   });
 
   div.appendChild(ul);
-  container.appendChild(div);
+  scroll_area.appendChild(div);
 }
 
-// ─── § 13  ATTRIBUTES LIST ───────────────────────────────────────────────────
+// ─── § 15  ATTRIBUTES LIST ───────────────────────────────────────────────────
 function render_attributes_list(element_obj) {
   const ul = document.createElement("ul");
   ul.id = "attributes-list";
@@ -276,12 +237,10 @@ function render_attributes_list(element_obj) {
     element_obj.attributes.forEach(function(a) {
       const li = document.createElement("li");
       li.textContent = a.attribute;
-
       li.onclick = function() {
         li.classList.toggle("open");
         toggle_attribute_content(li, a);
       };
-
       ul.appendChild(li);
     });
   }
@@ -289,7 +248,7 @@ function render_attributes_list(element_obj) {
   return ul;
 }
 
-// ─── § 14  TOGGLES ───────────────────────────────────────────────────────────
+// ─── § 16  TOGGLE LESSON CONTENT ─────────────────────────────────────────────
 function toggle_lesson_content(li_el, content, type) {
   const existing = li_el.querySelector("p, code");
   if (existing) {
@@ -303,6 +262,7 @@ function toggle_lesson_content(li_el, content, type) {
   li_el.appendChild(el);
 }
 
+// ─── § 17  TOGGLE ATTRIBUTE CONTENT ──────────────────────────────────────────
 function toggle_attribute_content(li_el, attr_obj) {
   const existing = li_el.querySelector("p, code");
   if (existing) {
@@ -323,13 +283,85 @@ function toggle_attribute_content(li_el, attr_obj) {
   }
 }
 
-// ─── § 15  BACK BUTTON ───────────────────────────────────────────────────────
+// ─── § 18  BACK NAVIGATION ───────────────────────────────────────────────────
 function show_previous() {
-  update_nav_path([]);
-  document.getElementById("back-btn").classList.add("hidden");
+  state.history_stack.pop();
+
+  if (state.history_stack.length === 0) {
+    render_welcome();
+    update_nav_path([]);
+    hide_back_btn();
+    set_active_version_btn(null);
+    state.current_version = null;
+    return;
+  }
+
+  const prev = state.history_stack[state.history_stack.length - 1];
+  render_view(prev);
+  rebuild_nav_path_from_stack();
 }
 
-// ─── § 16  INIT ──────────────────────────────────────────────────────────────
+// ─── § 19  REBUILD NAV PATH FROM STACK ───────────────────────────────────────
+function rebuild_nav_path_from_stack() {
+  const top = state.history_stack[state.history_stack.length - 1];
+  if (!top) return;
+
+  if (top.type === "topics") {
+    update_nav_path([top.version_obj.version]);
+  } else if (top.type === "elements") {
+    update_nav_path([top.version_obj.version, top.topic_obj.topic]);
+  } else if (top.type === "lesson") {
+    update_nav_path([top.version_obj.version, top.topic_name, top.element_obj.element]);
+  }
+}
+
+// ─── § 20  WELCOME / RESET ───────────────────────────────────────────────────
+function render_welcome() {
+  const scroll_area = document.getElementById("scroll-area");
+  const heading = document.getElementById("content-heading");
+  if (!scroll_area || !heading) return;
+
+  heading.classList.add("hidden");
+  heading.textContent = "";
+
+  scroll_area.innerHTML = `
+    <div id="welcome-message">
+      <h3>Welcome to the HTML Guide</h3>
+      <p>Tap a version button above to begin — HTML1 through HTML5.</p>
+      <p>Each version contains topic categories. Tap a topic to see its elements, then tap an element to open its full lesson.</p>
+      <p>Use the ← Back button or tap any link in the path above to return to a previous view.</p>
+    </div>
+  `;
+}
+
+// ─── § 21  VERSION BTN HELPERS ───────────────────────────────────────────────
+function set_active_version_btn(version_name) {
+  document.querySelectorAll(".version-btn").forEach(function(btn) {
+    if (btn.dataset.version === version_name) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+}
+
+function show_back_btn() {
+  const btn = document.getElementById("back-btn");
+  if (btn) btn.classList.remove("hidden");
+}
+
+function hide_back_btn() {
+  const btn = document.getElementById("back-btn");
+  if (btn) btn.classList.add("hidden");
+}
+
+// ─── § 22  INIT ──────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", function() {
-  render_version_topics_list();
+  document.querySelectorAll(".version-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      on_version_click(btn.dataset.version);
+    });
+  });
+
+  update_nav_path([]);
 });
